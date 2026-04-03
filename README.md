@@ -9,6 +9,7 @@
   - OpenCode
   - CodeBuddy
   - QoderCLI
+  - Git
 - 美观的终端用户界面 (TUI)
 - 实时显示更新进度和版本信息
 
