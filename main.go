@@ -24,6 +24,7 @@ var cliTools = []CLITool{
 	{Name: "OpenCode", Command: "opencode", UpdateCmd: "upgrade", VersionFlag: "--version"},
 	{Name: "CodeBuddy", Command: "codebuddy", UpdateCmd: "update", VersionFlag: "--version"},
 	{Name: "QoderCLI", Command: "qodercli", UpdateCmd: "update", VersionFlag: "--version"},
+	{Name: "Git", Command: "git", UpdateCmd: "update-git-for-windows", VersionFlag: "--version"},
 }
 
 // 应用信息
@@ -124,7 +125,7 @@ func initialModel() model {
 	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
 		Foreground(lipgloss.Color("#444444"))
 
-	l := list.New(items, delegate, 40, 15)
+	l := list.New(items, delegate, 40, 18)
 	l.SetShowPagination(false)
 	l.SetShowHelp(false)
 	l.Title = "CLI 工具更新器"
