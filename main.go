@@ -17,19 +17,28 @@ type CLITool struct {
 	Command     string
 	UpdateCmd   string
 	VersionFlag string
+	// 如果 UpdateCommand 不为空，则使用它作为完整的更新命令（通过 shell 执行）
+	// 否则使用 Command + UpdateCmd 的方式
+	UpdateCommand string
+	// 更新成功后执行的额外命令（如环境变量刷新等）
+	PostUpdateCommand string
 }
 
 var cliTools = []CLITool{
-	{Name: "Claude Code", Command: "claude", UpdateCmd: "update", VersionFlag: "--version"},
-	{Name: "OpenCode", Command: "opencode", UpdateCmd: "upgrade", VersionFlag: "--version"},
-	{Name: "CodeBuddy", Command: "codebuddy", UpdateCmd: "update", VersionFlag: "--version"},
-	{Name: "QoderCLI", Command: "qodercli", UpdateCmd: "update", VersionFlag: "--version"},
-	{Name: "Git", Command: "git", UpdateCmd: "update-git-for-windows", VersionFlag: "--version"},
+	{Name: "1. ClaudeCode", Command: "claude", UpdateCmd: "update", VersionFlag: "--version"},
+	{Name: "2. OpenCode", Command: "opencode", UpdateCmd: "upgrade", VersionFlag: "--version"},
+	{Name: "3. CodeBuddy", Command: "codebuddy", UpdateCmd: "update", VersionFlag: "--version"},
+	{Name: "4. QoderCLI", Command: "qodercli", UpdateCmd: "update", VersionFlag: "--version"},
+	{Name: "+ QwenCodeCLI", Command: "qwen", UpdateCmd: "", VersionFlag: "--version", UpdateCommand: "npm install -g @qwen-code/qwen-code@latest --registry https://registry.npmmirror.com"},
+	{Name: "+ GeminiCLI", Command: "gemini", UpdateCmd: "", VersionFlag: "--version", UpdateCommand: "npm install -g @google/gemini-cli@latest --registry https://registry.npmmirror.com"},
+	{Name: "+ GrokCLI", Command: "grok", UpdateCmd: "", VersionFlag: "--version", UpdateCommand: "npm install -g @vibe-kit/grok-cli@latest --registry https://registry.npmmirror.com"},
+	{Name: "* Git", Command: "git", UpdateCmd: "update-git-for-windows", VersionFlag: "--version"},
+	{Name: "* FNM", Command: "fnm", UpdateCmd: "", VersionFlag: "--version", UpdateCommand: "winget upgrade fnm", PostUpdateCommand: "fnm env --use-on-cd | Out-String | Invoke-Expression"},
 }
 
 // 应用信息
 const (
-	AppVersion = "v0.1"
+	AppVersion = "v0.2"
 	AppAuthor  = "keinx"
 )
 
@@ -125,7 +134,7 @@ func initialModel() model {
 	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
 		Foreground(lipgloss.Color("#444444"))
 
-	l := list.New(items, delegate, 40, 18)
+	l := list.New(items, delegate, 40, 30)
 	l.SetShowPagination(false)
 	l.SetShowHelp(false)
 	l.Title = "CLI 工具更新器"
@@ -196,19 +205,41 @@ func doUpdate(tool CLITool, oldVersion string) tea.Cmd {
 	}
 }
 
+func runShellCommand(command string) (string, error) {
+	cmd := exec.Command("cmd", "/c", command)
+	cmd.Env = os.Environ()
+	output, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(output)), err
+}
+
 func performUpdateWithVersion(tool CLITool, oldVersion string) (string, bool) {
 	if strings.Contains(oldVersion, "未安装") {
 		return oldVersion, false
 	}
 
 	// 执行更新命令
-	updateOutput, err := runCommand(tool.Command, tool.UpdateCmd)
+	var updateOutput string
+	var err error
+	if tool.UpdateCommand != "" {
+		updateOutput, err = runShellCommand(tool.UpdateCommand)
+	} else {
+		updateOutput, err = runCommand(tool.Command, tool.UpdateCmd)
+	}
 	if err != nil {
+		// winget 等工具在已是最新版本时也会返回错误码
+		if strings.Contains(updateOutput, "较新的包版本") || strings.Contains(updateOutput, "no newer") {
+			return fmt.Sprintf("已是最新版本\n当前版本: %s", oldVersion), true
+		}
 		return fmt.Sprintf("更新失败: %s\n错误: %s", updateOutput, err.Error()), false
 	}
 
 	// 获取更新后版本
 	newVersion := getVersion(tool)
+
+	// 执行更新后命令（如环境变量刷新等）
+	if tool.PostUpdateCommand != "" {
+		runShellCommand(tool.PostUpdateCommand)
+	}
 
 	if oldVersion == newVersion {
 		return fmt.Sprintf("已是最新版本\n当前版本: %s", oldVersion), true
